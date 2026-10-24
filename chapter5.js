@@ -69,7 +69,22 @@ $('#division').oninput=thermometer;
 $('#checkThermo').onclick=()=>{const val=$('#thermoAnswer').value;const expected=+$('#division').value*5;$('#thermoFeedback').textContent=val.trim()===''?'Enter a reading first.':Math.abs(Number(val)-expected)<0.01?`✓ Correct: 100 ÷ 20 = 5°C per interval; ${$('#division').value} × 5 = ${expected}°C.`:'Try again: divide 100 degrees by 20 intervals, then multiply by the selected interval count.';};thermometer();
 function convert(){const raw=$('#celsius').value,c=Number(raw),valid=raw.trim()!==''&&Number.isFinite(c)&&c>=-273.15&&c<=10000;$('#conversionError').textContent=valid?'':'Enter a temperature from −273.15°C to 10,000°C for this calculator.';if(!valid){['outC','outF','outK'].forEach(id=>$('#'+id).textContent='—');$('#conversionSteps').textContent='';return;}$('#outC').textContent=fmt(c);$('#outF').textContent=fmt(c*9/5+32);$('#outK').textContent=fmt(c+273.15);$('#conversionSteps').textContent=`F = (${fmt(c)} × 9 ÷ 5) + 32 = ${fmt(c*9/5+32)}°F. K = ${fmt(c)} + 273.15 = ${fmt(c+273.15)} K.`;}
 $('#celsius').oninput=convert;document.querySelectorAll('[data-temp]').forEach(b=>b.onclick=()=>{$('#celsius').value=b.dataset.temp;convert()});convert();
-function bimetal(){const t=+$('#stripTemp').value,bend=(t-20)*1.05;$('#stripTempValue').textContent=t;$('#metalA').setAttribute('d',`M60 100 Q240 100 420 ${100+bend}`);$('#metalB').setAttribute('d',`M60 114 Q240 114 420 ${114+bend}`);$('#stripState').textContent=t===20?'At the starting temperature: straight strip, heater circuit closed (ON).':t<60?'Warming: the strip bends toward blue B. The model’s heater circuit is still closed (ON).':'At or above 60°C: the strip has moved enough to open the model’s switch. Heater OFF. Slide back to cool it.';}
+function bimetal(){
+ const t=+$('#stripTemp').value,angle=(t-20)/80*.65;
+ $('#stripTempValue').textContent=t;
+ if(angle<.001){$('#metalA').setAttribute('d','M55 110 L355 110');$('#metalB').setAttribute('d','M55 123 L355 123');}
+ else {const radius=300/angle;const x=55+radius*Math.sin(angle),y=110+radius*(1-Math.cos(angle));const inner=radius-13;const bx=55+inner*Math.sin(angle),by=110+radius-inner*Math.cos(angle);$('#metalA').setAttribute('d',`M55 110 A${radius} ${radius} 0 0 1 ${x} ${y}`);$('#metalB').setAttribute('d',`M55 123 A${inner} ${inner} 0 0 1 ${bx} ${by}`);}
+ const on=t<60;
+ $('#switchBlade').setAttribute('d',on?'M80 140 L80 90':'M80 140 L115 107');
+ $('#switchBlade').setAttribute('stroke',on?'#1d604c':'#a26444');
+ $('#thermoWires').setAttribute('stroke',on?'#1d604c':'#83938a');
+ $('#heaterCoil').setAttribute('stroke',on?'#d55c32':'#83938a');
+ $('#circuitState').textContent=on?'Current flows':'Gap: no current';
+ $('#bendReason').textContent=t===20?'At 20°C the strip is straight. The two bonded layers are at their starting lengths.':'Orange A becomes the longer outside curve. The strip bends downward, toward blue B, which expands less.';
+ $('#switchReason').textContent=on?'CLOSED means touching contacts: the circuit is complete, so current flows and the heater receives energy.':'OPEN means separated contacts: the gap breaks the circuit, so no current flows through the heater.';
+ $('#stripState').textContent=on?(t===20?'Cooler → straight strip → closed switch → heater ON.':'Warming → strip bends → switch still closed → heater ON.'):'Hot enough → strip triggers switch to open → heater OFF. The heater remains hot and cools gradually.';
+}
+
 $('#stripTemp').oninput=bimetal;bimetal();
 function water(){const t=+$('#waterTemp').value;$('#waterTempValue').textContent=t;$('#waterVolume').style.width=(190+(t-4)*(t-4)*1.4)+'px';$('#waterState').textContent=t<4?`${t}°C: warming toward 4°C makes this same mass contract and become denser.`:t===4?'4°C: smallest volume and greatest density for this mass of liquid water.':`${t}°C: above 4°C, further warming makes this mass expand and become less dense.`;}
 $('#waterTemp').oninput=water;water();
@@ -79,3 +94,6 @@ $('#testFlask').onclick=()=>{const gap=$('#flaskGap').value,surface=$('#flaskSur
 ['flaskGap','flaskSurface','flaskLid'].forEach(id=>$('#'+id).onchange=()=>{$('#flaskFeedback').textContent='Design changed. Test again to compare your defences.';});
 $('#download').onclick=()=>{const lines=['SCIENCE FUN GRADE 7 — HEAT LAB','Learning report (correct answers may follow hints or retries)',''];for(let level=1;level<=3;level++){const ids=questions.map((q,i)=>q.level===level?i:-1).filter(i=>i>=0);lines.push(`Level ${level}: ${ids.filter(mastered).length}/6 mastered`);}lines.push('');questions.forEach((q,i)=>lines.push(`${i+1}. ${q.q}\n${mastered(i)?'MASTERED':'TO REVISIT'} · Attempts: ${progress[i]?.attempts||0}\nExplanation: ${q.why}\n`));const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Heat-Lab-learning-report.txt';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('#reset').onclick=()=>{if(confirm('Reset only this advanced lesson’s progress? The foundation lesson is kept.')){try{localStorage.removeItem(KEY)}catch{}location.reload();}};
+
+[['thermoCool',20],['thermoWarm',55],['thermoHot',65]].forEach(([id,t])=>{$('#'+id).onclick=()=>{$('#stripTemp').value=t;bimetal()}});
+
